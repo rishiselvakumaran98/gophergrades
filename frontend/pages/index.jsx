@@ -7,13 +7,17 @@ import {
   Heading,
   Text,
   VStack,
+  HStack,
+  Button
 } from "@chakra-ui/react";
 import dynamic from "next/dynamic";
 import PageLayout from "../components/Layout/PageLayout";
 import SearchBar from "../components/Search/SearchBar";
 import SearchResults from "../components/Search/SearchResults";
+import ChatBotBubble from "../components/chatbot/ChatBotBubble";
 import { useSearch } from "../components/Search/useSearch";
 import { searchDurations } from "../lib/config";
+import { useSession } from "next-auth/react";
 
 const ChromeExtensionBanner = dynamic(
   import("../components/ChromeExtensionBanner"),
@@ -21,6 +25,7 @@ const ChromeExtensionBanner = dynamic(
 );
 
 const Home = () => {
+  const { data: session } = useSession();
   const {
     search,
     searchResults,
@@ -55,20 +60,35 @@ const Home = () => {
             }}
           >
             <Heading
+              as="h1"
               fontSize={["50px", "55px", "90px"]}
               paddingTop={[0, 10, "calc(50vh - 185px)"]}
               textAlign={["center", "left", "left"]}
+
+              sx={{ // Apply text shadow only in dark mode for neon effect
+                _dark: {
+                  textShadow: `
+                    0 0 6px #FFCC33, 
+                    0 0 12px #FFCC33, 
+                    // 0 0 18px #FF8C00` // Adding a bit of a deeper orange for the outer glow
+                }
+              }}
             >
               Gopher Grades!
             </Heading>
             <Text
               maxW={["100%", "50%", "100%"]}
-              style={{
-                color: "black",
-              }}
+              // style={{
+              //   color: "black",
+              // }}
               textAlign={["center", "left", "left"]}
               py={[8, 10, 2]}
               fontWeight={300}
+              sx={{ // Apply text shadow only in dark mode for neon effect
+                _dark: {
+                  color: "red"
+                }
+              }}
             >
               View all the past grades for classes taken at the University of
               Minnesota, Twin Cities.
@@ -83,6 +103,8 @@ const Home = () => {
             <SearchBar
               placeholder={search || undefined}
               onChange={handleChange}
+            />
+            <ChatBotBubble
             />
           </Box>
           <Collapse in={showPage} animateOpacity>

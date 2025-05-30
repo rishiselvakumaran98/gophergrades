@@ -1,0 +1,250 @@
+/* styles/ProfileSetup.module.css */
+
+/* --- Main Container & Form Layout --- */
+.container {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 2.5rem;
+  background-color: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.container h1 {
+  font-size: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.container p {
+  font-size: 1rem;
+  color: #666;
+  margin-bottom: 2rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem; /* Consistent spacing between sections */
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.formGroup label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid #eee;
+}
+
+/* --- Input & Textarea Styling --- */
+.input,
+.textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input:focus,
+.textarea:focus {
+  outline: none;
+  border-color: #7a0019; /* UMN Maroon */
+  box-shadow: 0 0 0 2px rgba(122, 0, 25, 0.2);
+}
+
+.input[disabled] {
+  background-color: #f3f3f3;
+}
+
+.inputWithIcon {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputWithIcon .input {
+  padding-right: 2.5rem; /* Make space for the icon */
+}
+
+.icon {
+  position: absolute;
+  right: 1rem;
+  cursor: pointer;
+  color: #777;
+}
+.icon:hover {
+  color: #000;
+}
+
+
+/* --- NEW: Course Entry Row Styling --- */
+.courseEntryRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.courseSelect {
+  flex: 4; /* Course dropdown takes the most space */
+}
+.semesterInput {
+  flex: 2;
+}
+.gradeSelect {
+  flex: 1;
+}
+
+.addButton {
+  padding: 12px 20px;
+  background-color: #1a73e8; /* A nice blue for 'Add' */
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.addButton:hover {
+  background-color: #1662c5;
+}
+
+
+/* --- Added Course List Styling --- */
+.courseList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.courseTag {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #f1f3f4;
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  font-size: 0.95rem;
+}
+
+.courseTag span strong {
+  color: #000;
+}
+
+.removeIcon {
+  cursor: pointer;
+  color: #777;
+}
+.removeIcon:hover {
+  color: #c51230;
+}
+
+/* --- File Dropzone Styling --- */
+.dropzone {
+  border: 2px dashed #ccc;
+  border-radius: 4px;
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.dropzone:hover,
+.dropzone[data-active="true"] {
+  border-color: #7a0019;
+  background-color: #faf6f6;
+}
+
+.dropzone p {
+  margin: 0;
+  font-size: 1rem;
+  color: #666;
+}
+
+
+/* --- Submit Button --- */
+.submitButton {
+  padding: 0.8rem 1.5rem;
+  font-size: 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  background-color: #7a0019;
+  color: white;
+  font-weight: 600;
+  align-self: flex-start; /* Position button to the left */
+  transition: background-color 0.2s;
+}
+
+.submitButton:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.submitButton:hover:not(:disabled) {
+  background-color: #630015;
+}
+
+
+.semestersContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem; /* Space between semester blocks */
+}
+
+.semesterBlock {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.semesterHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.semesterHeader h4 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+/* This row is for adding a NEW semester */
+.addSemesterRow {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  border-top: 1px solid #eee;
+  padding-top: 1.5rem;
+}
+
+/* Make the Plus icon on the add button look nice */
+.addButton svg {
+  vertical-align: middle;
+  margin-right: 0; /* Adjust if you add text back */
+}
+
+/* Adjustments for the course list inside a semester block */
+.semesterBlock .courseList {
+  margin-bottom: 1rem;
+}
+
+.semesterBlock .courseEntryRow {
+  margin-top: 1rem;
+}
