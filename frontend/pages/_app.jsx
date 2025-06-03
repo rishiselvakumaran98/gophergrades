@@ -14,8 +14,8 @@ function AppLogic({ Component, pageProps }) {
   const { isNewUser, isLoading } = useProfile();
 
   useEffect(() => {
-    if (!isLoading && isNewUser && router.pathname !== '/profile/setup') {
-      router.push('/profile/setup');
+    if (!isLoading && isNewUser && router.pathname !== '/profile') {
+      router.push('/profile');
     }
   }, [isNewUser, isLoading, router]);
 
