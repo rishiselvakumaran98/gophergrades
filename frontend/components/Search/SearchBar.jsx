@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Input, InputGroup, InputLeftElement } from "@chakra-ui/react";
+import { Input, InputGroup, InputLeftElement, useColorModeValue } from "@chakra-ui/react";
 import { Search2Icon } from "@chakra-ui/icons";
 
 const SearchBar = ({
@@ -12,6 +12,12 @@ const SearchBar = ({
     setSearch(e.target.value);
     onChange?.(e.target.value);
   };
+
+  const textColor = "gray.800";
+  const placeholderColor = "gray.500";
+  const iconColor = "gray.600";
+  const searchBarBg = useColorModeValue("rgba(255,255,255,0.7)", "rgba(255,255,255,0.3)");
+  const searchBarFocusBg = useColorModeValue("white", "rgba(255,255,255,0.9)");
 
   return (
     <InputGroup>
@@ -29,19 +35,20 @@ const SearchBar = ({
           }
         }}
         placeholder={placeholder}
-        background={"rgba(255,255,255,0.3)"}
-        boxShadow={"0px 0px 20px rgba(111, 19, 29, 0.1)"}
-        style={{
-          borderRadius: "9px",
-          border: "none",
-        }}
+        bg={searchBarBg} // Use dynamic background
+        color={textColor} // --- FIX: Explicitly set the text color to a dark value ---
+        _placeholder={{ color: placeholderColor }} // Style the placeholder text
+        boxShadow={"md"} // Simplified shadow
+        borderRadius="lg" // Use theme-based border radius
+        border="1px solid transparent" // Start with a transparent border
         _hover={{
-          background: "rgba(255,255,255,0.7)",
-          boxShadow: "0px 0px 20px rgba(111, 19, 29, 0.1)",
+          bg: searchBarFocusBg,
+          borderColor: "gray.300",
         }}
         _focus={{
-          boxShadow: "0px 0px 20px rgba(111, 19, 29, 0.35)",
-          background: "rgba(255,255,255,0.9)",
+          boxShadow: "outline", // Use theme's focus outline
+          background: searchBarFocusBg,
+          borderColor: "blue.400", // Example focus border color
         }}
       />
     </InputGroup>

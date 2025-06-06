@@ -68,8 +68,8 @@ const Home = () => {
               sx={{ // Apply text shadow only in dark mode for neon effect
                 _dark: {
                   textShadow: `
-                    0 0 6px #FFCC33, 
-                    0 0 12px #FFCC33, 
+                    0 0 6pxrgba(255, 204, 49, 0.27), 
+                    0 0 12pxrgba(255, 204, 49, 0.27), 
                     // 0 0 18px #FF8C00` // Adding a bit of a deeper orange for the outer glow
                 }
               }}
@@ -86,7 +86,7 @@ const Home = () => {
               fontWeight={300}
               sx={{ // Apply text shadow only in dark mode for neon effect
                 _dark: {
-                  color: "red"
+                  color: "red.600"
                 }
               }}
             >

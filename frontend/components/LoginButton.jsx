@@ -5,14 +5,12 @@ import { useSession, signIn, signOut } from "next-auth/react";
 import NextLink from "next/link"; // Renamed to avoid conflict with Chakra's Link
 import {
   Button,
-  Box,
   Menu,
   MenuButton,
   MenuList,
   MenuItem,
   Spinner,
-  useColorModeValue,
-  Text
+  useColorModeValue
 } from "@chakra-ui/react";
 
 export const LoginButton = () => {

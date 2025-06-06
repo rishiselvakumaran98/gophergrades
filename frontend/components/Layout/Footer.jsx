@@ -173,12 +173,22 @@ export const Footer = () => {
           fontSize={"sm"}
           fontWeight={300}
           color={"gray.600"}
+          sx={{ // Apply text shadow only in dark mode for neon effect
+                _dark: {
+                  color: "red.600"
+                }
+              }}
         >
           <NextLink href={"/"}>Gopher Grades</NextLink> is maintained by{" "}
           <LinkButton
             target={"_blank"}
             href={"/social-coding"}
             fontWeight={500}
+            sx={{ // Apply text shadow only in dark mode for neon effect
+                _dark: {
+                  color: "red.600"
+                }
+              }}
           >
             Social Coding
           </LinkButton>{" "}
@@ -187,6 +197,11 @@ export const Footer = () => {
             target={"_blank"}
             href={"https://idr.umn.edu/"}
             fontWeight={400}
+            sx={{ // Apply text shadow only in dark mode for neon effect
+                _dark: {
+                  color: "red.600"
+                }
+              }}
           >
             Office of Institutional Data and Research
           </LinkButton>
@@ -196,6 +211,11 @@ export const Footer = () => {
           fontWeight={"300"}
           target={"_blank"}
           href={"/privacy"}
+          sx={{ // Apply text shadow only in dark mode for neon effect
+                _dark: {
+                  color: "red.600"
+                }
+              }}
         >
           Privacy Policy
         </LinkButton>

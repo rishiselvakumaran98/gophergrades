@@ -1,14 +1,22 @@
 // pages/api/courses/search.js
-import { getEveryClassCode } from '../../../lib/db';
+import { getSearch } from '../../../lib/db';
 
 export default async function handler(req, res) {
+  // 1. Get the user's typed query from the request URL
+  const searchQuery = req.query.q || "";
+
+  // 2. Don't search if the query is too short
+  if (searchQuery.length < 2) {
+    return res.status(200).json([]); // Return an empty array
+  }
+
   try {
-    const courses = await getEveryClassCode();
+    const searchResults = await getSearch(searchQuery);
 
     // Format the data for react-select: { value: '...', label: '...' }
-    const formattedCourses = courses.map(course => ({
-      value: `${course.dept_abbr} ${course.course_num}`,
-      label: `${course.dept_abbr} ${course.course_num}: ${course.class_desc}`
+    const formattedCourses = searchResults.classes.map((course) => ({
+      value: course.class_name,
+      label: `${course.class_name}: ${course.class_desc}`,
     }));
     
     res.status(200).json(formattedCourses);

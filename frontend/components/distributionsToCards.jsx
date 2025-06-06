@@ -12,6 +12,7 @@ import {
   Tooltip,
   useDisclosure,
   VStack,
+  useColorModeValue,
 } from "@chakra-ui/react";
 import React from "react";
 import {
@@ -52,6 +53,12 @@ const SingleDistribution = ({ dist, isMobile, isStatic }) => {
     showCOVIDTag = dist.term > 1200 && dist.term <= 1215;
   }
 
+  // --- Colors for Dark Mode ---
+  const titleColor = useColorModeValue("black.800", "red.900");
+  const subtitleColor = useColorModeValue("gray.600", "black.900");
+  const infoTextColor = useColorModeValue("gray.600", "red.900"); // Specific for the "This total also includes..." text
+  const cardBorderColor = useColorModeValue("gray.200", "gray.00");
+
   return (
     <Box pos={"relative"} width={"full"}>
       <Card
@@ -59,6 +66,7 @@ const SingleDistribution = ({ dist, isMobile, isStatic }) => {
         isSummary={dist.isSummary}
         href={isStatic ? "#" : dist.href}
         isStatic={isStatic}
+        borderColor={cardBorderColor}
       >
         <HStack
           justify={"center"}
@@ -79,12 +87,13 @@ const SingleDistribution = ({ dist, isMobile, isStatic }) => {
               <Text
                 fontSize={dist.isSummary ? "3xl" : "lg"}
                 fontWeight={"bold"}
+                color={titleColor}
               >
                 {(!isStatic || !dist.isSummary) && title}
               </Text>
             )}
             {subtitle && (
-              <Text fontSize={"xs"} fontWeight={"200"}>
+              <Text fontSize={"xs"} fontWeight={"200"} color={subtitleColor}> 
                 {subtitle}
               </Text>
             )}
@@ -119,6 +128,7 @@ const SingleDistribution = ({ dist, isMobile, isStatic }) => {
                   textAlign={"center"}
                   colorScheme={letterToColor(dist.averageGradeLetter)}
                   py={1}
+                  variant="solid"
                 >
                   {dist.averageGradeLetter} Average ({dist.averageGPA})
                 </Tag>
@@ -128,6 +138,7 @@ const SingleDistribution = ({ dist, isMobile, isStatic }) => {
                 textAlign={"center"}
                 colorScheme={letterToColor(dist.mostStudents)}
                 py={1}
+                variant="solid"
               >
                 Most Common: {dist.mostStudents} ({dist.mostStudentsPercent}
                 %)
@@ -143,8 +154,8 @@ const SingleDistribution = ({ dist, isMobile, isStatic }) => {
                     size={"sm"}
                     textAlign={"center"}
                     py={1.5}
-                    colorScheme={"blackAlpha"}
-                    background={"transparent"}
+                    bg={useColorModeValue("gray.100", "gray.800")}
+                    color={useColorModeValue("gray.800", "gray.200")}
                   >
                     <InfoOutlineIcon />
                   </Tag>
@@ -152,7 +163,7 @@ const SingleDistribution = ({ dist, isMobile, isStatic }) => {
               )}
             </HStack>
             {dist.info && (
-              <Text fontSize={"sm"} color={"gray.600"} pt={2}>
+              <Text fontSize={"sm"} color={infoTextColor} pt={2}>
                 {dist.info}
               </Text>
             )}
@@ -160,7 +171,12 @@ const SingleDistribution = ({ dist, isMobile, isStatic }) => {
 
           <VStack>
             <HStack>
-              <Badge>{dist.students} students</Badge>
+              <Badge 
+                colorScheme="black" // Using a neutral scheme that adapts better
+                variant={useColorModeValue("subtle", "solid")} // Subtle in light, outline in dark
+              >
+                {dist.students} students
+              </Badge>
             </HStack>
             <HStack>
               {dist.BarChart}
@@ -170,7 +186,7 @@ const SingleDistribution = ({ dist, isMobile, isStatic }) => {
         </HStack>
         {dist.terms && dist.terms.length > 1 && (
           <Collapse in={isOpen} animateOpacity>
-            <VStack spacing={3} p={2} pt={3}>
+            <VStack spacing={3} p={2} pt={3} bg={useColorModeValue("gray.50", "blackAlpha.300")}> 
               {dist.terms?.sort(sortingFunctions.RECENCY).map((term) => (
                 <SingleDistribution
                   dist={{
@@ -195,6 +211,7 @@ const SingleDistribution = ({ dist, isMobile, isStatic }) => {
           left={"1px"}
           aria-label={"toggle dropdown"}
           variant={"ghost"}
+          color={useColorModeValue("gray.600", "gray.400")}
           colorScheme={"blackAlpha"}
           rounded={"full"}
           onClick={onToggle}

@@ -156,7 +156,7 @@ export const AreaChart = ({ distribution, averageGPA, isMobile = true }) => {
             fontSize: 9,
             userSelect: "none",
             fontWeight: "bold",
-            fill: "rgba(128, 128, 128, 0.5)",
+            fill: "rgba(8, 7, 7, 0.96)",
           }}
         >
           {grade}
