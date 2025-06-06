@@ -14,7 +14,6 @@ import dynamic from "next/dynamic";
 import PageLayout from "../components/Layout/PageLayout";
 import SearchBar from "../components/Search/SearchBar";
 import SearchResults from "../components/Search/SearchResults";
-import ChatBotBubble from "../components/chatbot/ChatBotBubble";
 import { useSearch } from "../components/Search/useSearch";
 import { searchDurations } from "../lib/config";
 import { useSession } from "next-auth/react";
@@ -103,8 +102,6 @@ const Home = () => {
             <SearchBar
               placeholder={search || undefined}
               onChange={handleChange}
-            />
-            <ChatBotBubble
             />
           </Box>
           <Collapse in={showPage} animateOpacity>

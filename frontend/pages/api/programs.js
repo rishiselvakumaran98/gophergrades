@@ -1,5 +1,4 @@
 // pages/api/programs.js
-import { NextApiRequest, NextApiResponse } from 'next';
 import dbConnect from '../../lib/mongoose';
 import Program from '../../models/Program';
 

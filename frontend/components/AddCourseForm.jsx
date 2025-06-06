@@ -11,7 +11,7 @@ import { FaPlusCircle } from 'react-icons/fa';
 
 const gradeOptions = ["A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "F", "S", "N", "W"].map(g => ({ value: g, label: g }));
 
-export const AddCourseForm = ({ onAddCourse, customSelectStyles }) => {
+export const AddCourseForm = ({ onAddCourse, chakraSelectStyles }) => {
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [selectedGrade, setSelectedGrade] = useState(null);
 
@@ -28,8 +28,13 @@ export const AddCourseForm = ({ onAddCourse, customSelectStyles }) => {
 
   const handleAddClick = () => {
     if (selectedCourse && selectedGrade) {
+      const labelParts = selectedCourse.label.split(': ');
+      const courseCode = labelParts[0];
+      const courseTitle = labelParts.length > 1 ? labelParts.slice(1).join(': ') : '';
+
       onAddCourse({
-        course: selectedCourse.value,
+        course: courseCode,
+        title: courseTitle,
         grade: selectedGrade.value,
       });
       setSelectedCourse(null);
@@ -48,7 +53,7 @@ export const AddCourseForm = ({ onAddCourse, customSelectStyles }) => {
           value={selectedCourse}
           onChange={setSelectedCourse}
           cacheOptions
-          chakraStyles={customSelectStyles}
+          chakraStyles={chakraSelectStyles}
         />
       </Box>
       <Box flex={1}>
@@ -58,7 +63,7 @@ export const AddCourseForm = ({ onAddCourse, customSelectStyles }) => {
           options={gradeOptions} // Provide the local array directly
           value={selectedGrade}
           onChange={setSelectedGrade}
-          chakraStyles={customSelectStyles}
+          chakraStyles={chakraSelectStyles}
         />
       </Box>
       <IconButton

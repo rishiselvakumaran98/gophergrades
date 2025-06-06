@@ -57,10 +57,6 @@ const customSelectStyles = {
   }),
 };
 
-// Grade options for the dropdown
-const gradeOptions = [
-  "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "F"
-].map(g => ({ value: g, label: g }));
 
 const getSemesterValue = (semesterName) => {
   const parts = semesterName.split(' ');
@@ -90,6 +86,7 @@ export default function ProfileSetup() {
   const [academicGoals, setAcademicGoals] = useState([]);
   const [academicInterests, setAcademicInterests] = useState([]);
   const [currentAcademicGoal, setCurrentAcademicGoal] = useState('');
+  const [currentAcademicInterest, setCurrentAcademicInterest] = useState('');
   const [areasOfDifficulty, setAreasOfDifficulty] = useState([]);
   const [currentAreaOfDifficulty, setCurrentAreaOfDifficulty] = useState('');
   
@@ -98,9 +95,7 @@ export default function ProfileSetup() {
   const [extracurricularActivities, setExtracurricularActivities] = useState([]);
   const [currentExtracurricular, setCurrentExtracurricular] = useState('');
   const [researchInterests, setResearchInterests] = useState([]);
-  const [currentResearchInterest, setCurrentResearchInterest] = useState('');
   const [skills, setSkills] = useState([]);
-  const [currentSkill, setCurrentSkill] = useState('');
 
   // --- Preferences Tab States ---
   const [preferredStudyResources, setPreferredStudyResources] = useState([]); // For CheckboxGroup
@@ -118,18 +113,16 @@ export default function ProfileSetup() {
   const [selectedPrograms, setSelectedPrograms] = useState([]);
   const [interests, setInterests] = useState([]);
   const [currentInterest, setCurrentInterest] = useState('');
+  const [currentResearchInterest, setCurrentResearchInterest] = useState('');
   const [careerGoal, setCareerGoal] = useState('');
   
   // State for the program dropdown and loading indicators
-  const [availablePrograms, setAvailablePrograms] = useState([]);
+  // const [availablePrograms, setAvailablePrograms] = useState([]);
   const [isPageLoading, setIsPageLoading] = useState(true); // For initial data fetch
   const [isSubmitting, setIsSubmitting] = useState(false); // For form submission
 
   const [semesters, setSemesters] = useState({}); 
   const [newSemesterName, setNewSemesterName] = useState(''); // For the "Add Semester" input
-  // const [courseOptions, setCourseOptions] = useState([]); // For the searchable course dropdown
-  const [selectedCourse, setSelectedCourse] = useState(null);
-  const [selectedGrade, setSelectedGrade] = useState(null);
   const [uploadedFile, setUploadedFile] = useState(null); // To store the uploaded APAS/GPAS file
   const [transferCourses, setTransferCourses] = useState([]);
 
@@ -146,46 +139,31 @@ export default function ProfileSetup() {
 
   const sortedYears = Object.keys(semestersByYear).sort((a, b) => b - a);
 
-  const loadCourseOptions = (inputValue, callback) => {
-  // Don't search for very short strings
-  if (!inputValue || inputValue.length < 2) {
-    callback([]);
-    return;
-  }
+  const loadProgramOptions = (inputValue, callback) => {
+    // Don't make an API call if the input is too short
+    if (!inputValue || inputValue.length < 2) {
+      callback([]);
+      return;
+    }
 
-  // Fetch from our API with the user's input as a query parameter
-  fetch(`/api/courses/search?q=${inputValue}`)
-    .then(res => res.json())
-    .then(data => {
-      callback(data); // `callback` is provided by AsyncSelect to update the options
-    })
-    .catch(error => {
-      console.error("Error loading course options:", error);
-      callback([]); // Return empty array on error
-    });
-};
+    // Fetch from your API, passing the user's input to the 'q' query parameter
+    fetch(`/api/programs?q=${inputValue}`)
+      .then(res => res.json())
+      .then(data => {
+        // The API returns { programs: [...] }, so we need to access that key
+        callback(data.programs || []);
+      })
+      .catch(() => {
+        // On error, return an empty array
+        callback([]);
+      });
+  };
 
-
-  // --- THIS IS THE KEY TO PERSISTING THE DATA ---
-  // Fetch course list for the dropdown when the component mounts
-  // useEffect(() => {
-  //   fetch('/api/courses/search')
-  //     .then(res => res.json())
-  //     .then(data => setCourseOptions(data || []));
-  // }, []);
-
-  // This useEffect hook will run once the user's session is loaded.
   useEffect(() => {
     // Make sure we have a session before trying to fetch data
     if (status === 'authenticated') {
       setIsPageLoading(true);
 
-      // Fetch the full program list for the dropdown
-      fetch('/api/programs')
-        .then(res => res.json())
-        .then(data => setAvailablePrograms(data.programs));
-
-      // Fetch the user's saved profile
       fetch('/api/user/profile')
         .then(res => {
           if (res.ok) return res.json();
@@ -196,23 +174,23 @@ export default function ProfileSetup() {
           if (data && data.profile) {
             const profile = data.profile;
             // --- Populate all form fields with data from the database ---
-            setName(profile.name || session.user.name);
+            setName(profile.name || session.user.name || '');
             setTransferCourses(profile.transferCourses || []);
-            // Assuming selectedPrograms is for majors, and majors is an array of strings
-            if (profile.majors && availablePrograms.length > 0) {
-              const savedPrograms = availablePrograms.filter(prog => 
-                profile.majors.includes(prog.label)
-              );
+            
+            if (profile.majors && Array.isArray(profile.majors)) {
+              const savedPrograms = profile.majors.map(majorName => ({
+                value: majorName, // Use the name itself as the value
+                label: majorName, // And as the label
+              }));
               setSelectedPrograms(savedPrograms);
             } else {
               setSelectedPrograms([]);
             }
-            setAcademicInterests(profile.academicInterests || []); // Use new name
+            
+            setAcademicInterests(profile.academicInterests || []);
             setCareerGoal(profile.careerGoal || '');
             setSemesters(profile.semesters || {});
-
-            // Populate new fields
-            setCurrentCourses(profile.currentCourses ? profile.currentCourses.join(', ') : ''); // Example if storing as array
+            setCurrentCourses(profile.currentCourses ? profile.currentCourses.join(', ') : '');
             setLearningStyles(profile.learningStyles || []);
             setAcademicGoals(profile.academicGoals || []);
             setAreasOfDifficulty(profile.areasOfDifficulty || []);
@@ -232,7 +210,7 @@ export default function ProfileSetup() {
     } else if (status === 'unauthenticated') {
       router.push('/api/auth/signin');
     }
-  }, [status, availablePrograms.length]); // Re-run if the programs list loads after the profile
+  }, [status, session]);
   
   const handleAddSemester = () => {
     if (newSemesterName && !semesters[newSemesterName]) {
@@ -250,7 +228,6 @@ export default function ProfileSetup() {
   };
   
   const handleAddCourseToSemester = (semesterName, newCourse) => {
-    // newCourse is now an object like { course: '...', grade: '...' }
     setSemesters(prev => {
       const currentCoursesInSemester = prev[semesterName] || [];
       if (currentCoursesInSemester.some(c => c.course === newCourse.course)) {
@@ -273,7 +250,6 @@ export default function ProfileSetup() {
   
   // Handler for file uploads
   const onDrop = useCallback(acceptedFiles => {
-    // We only accept one file
     if (acceptedFiles.length > 0) {
       setUploadedFile(acceptedFiles[0]);
     }
@@ -283,21 +259,6 @@ export default function ProfileSetup() {
     accept: { 'application/pdf': ['.pdf'] },
     multiple: false,
   });
-
-  // ... (keep your handleInterestKeyDown and removeInterest functions the same)
-  const handleInterestKeyDown = (e) => {
-    if (e.key === 'Enter' && currentInterest) {
-      e.preventDefault();
-      if (!interests.includes(currentInterest)) {
-        setInterests([...interests, currentInterest]);
-      }
-      setCurrentInterest('');
-    }
-  };
-
-  const removeInterest = (interestToRemove) => {
-    setInterests(interests.filter(i => i !== interestToRemove));
-  };
 
 
   const handleSubmit = async (e) => {
@@ -309,14 +270,14 @@ export default function ProfileSetup() {
 
     const profileData = {
       name,
-      majors: selectedPrograms.map(p => p.label), // Assuming this is how majors are stored
+      majors: selectedPrograms.map(p => p.label),
       semesters,
-      currentCourses: currentCoursesArray, // Send as array
+      currentCourses: currentCoursesArray,
       learningStyles,
       academicGoals,
       areasOfDifficulty,
       careerGoal,
-      academicInterests, // Use new name
+      academicInterests,
       extracurricularActivities,
       researchInterests,
       skills,
@@ -374,7 +335,6 @@ export default function ProfileSetup() {
     setList(list.filter(i => i !== itemToRemove));
   };
 
-  // Display a loading screen while fetching initial data
   if (isPageLoading || status === 'loading') {
     return (
       <Flex justify="center" align="center" height="100vh">
@@ -387,6 +347,47 @@ export default function ProfileSetup() {
     setTransferCourses(prevCourses => 
       prevCourses.filter(course => course.course !== courseNameToRemove)
     );
+  };
+
+  const chakraSelectStyles = {
+    menu: (provided) => ({
+      ...provided,
+      bg: useColorModeValue('white', 'gray.700'),
+      borderColor: borderColor,
+      boxShadow: 'lg',
+    }),
+    option: (provided, state) => ({
+      ...provided,
+      bg: state.isFocused 
+          ? useColorModeValue('gray.100', 'gray.600') 
+          : 'transparent',
+      ...(state.isSelected && {
+        bg: useColorModeValue('blue.500', 'blue.400'),
+        color: 'white',
+        _hover: {
+          bg: useColorModeValue('blue.600', 'blue.500'),
+        }
+      }),
+      color: useColorModeValue('gray.800', 'whiteAlpha.800'),
+    }),
+    control: (provided, state) => ({
+      ...provided,
+      minHeight: '48px',
+      bg: useColorModeValue('white', 'gray.800'),
+      borderColor: borderColor,
+      boxShadow: state.isFocused ? `0 0 0 1px ${focusBorderColor}` : 'none',
+      '&:hover': {
+        borderColor: focusBorderColor,
+      }
+    }),
+    singleValue: (provided) => ({
+        ...provided,
+        color: useColorModeValue('gray.800', 'whiteAlpha.800'),
+    }),
+    placeholder: (provided) => ({
+        ...provided,
+        color: useColorModeValue('gray.500', 'gray.400'),
+    }),
   };
 
   return (
@@ -424,7 +425,7 @@ export default function ProfileSetup() {
           </HStack>
         </FormControl>
 
-        <Tabs variant="soft-rounded" colorScheme="blue" isLazy> {/* isLazy defers rendering of tab content */}
+        <Tabs variant="soft-rounded" colorScheme="blue" isLazy>
           <TabList overflowX="auto" overflowY="hidden">
             <Tab>Academic</Tab>
             <Tab>Interests & Goals</Tab>
@@ -440,13 +441,13 @@ export default function ProfileSetup() {
                   <FormLabel>Your Programs (Majors & Minors)</FormLabel>
                   <ChakraReactAsyncSelect
                     isMulti
-                    options={availablePrograms}
+                    placeholder="Search for your majors and minors..."
+                    loadOptions={loadProgramOptions} // Pass the loading function here
                     value={selectedPrograms}
                     onChange={setSelectedPrograms}
-                    placeholder="Select your majors and minors..."
-                    chakraStyles={{ // Example of basic styling, chakra-react-select has its own theming capabilities
-                      control: (provided) => ({ ...provided, borderColor: borderColor }),
-                    }}
+                    cacheOptions // Caches results to avoid repeated API calls for the same query
+                    defaultOptions // Can be `true` to load initial options or an array of default options
+                    chakraStyles={chakraSelectStyles}
                   />
                 </FormControl>
                 
@@ -508,7 +509,7 @@ export default function ProfileSetup() {
 
                                 <AddCourseForm 
                                   onAddCourse={(newCourse) => handleAddCourseToSemester(semesterName, newCourse)}
-                                  customSelectStyles={customSelectStyles} // Pass styles down
+                                  chakraStyles={chakraSelectStyles}
                                 />
                               </Box>
                             ))}
@@ -577,7 +578,7 @@ export default function ProfileSetup() {
                     value={learningStyles}
                     onChange={setLearningStyles}
                   >
-                    <HStack spacing="24px" wrap="wrap"> {/* Added wrap for responsiveness */}
+                    <HStack spacing="24px" wrap="wrap">
                       {['Hybrid', 'In-Person', 'Remote'].map(style => (
                         <Checkbox key={style} value={style}>{style}</Checkbox>
                       ))}
@@ -600,7 +601,7 @@ export default function ProfileSetup() {
                 
                 <FormControl>
                   <FormLabel>Areas of Academic Difficulty</FormLabel>
-                  <Input /* Similar to Academic Goals input */ 
+                  <Input 
                     value={currentAreaOfDifficulty}
                     onChange={(e) => setCurrentAreaOfDifficulty(e.target.value)}
                     placeholder="Type a subject/topic and press Enter"
@@ -621,21 +622,42 @@ export default function ProfileSetup() {
                   <Textarea value={careerGoal} onChange={e => setCareerGoal(e.target.value)} /* ... */ />
                 </FormControl>
                 
-                <FormControl id="interests">
+                <FormControl id="academicInterests">
                   <FormLabel>Academic Interests</FormLabel>
                   <Input
-                    value={currentInterest}
-                    onChange={(e) => setCurrentInterest(e.target.value)}
-                    onKeyDown={handleInterestKeyDown}
+                    value={currentAcademicInterest}
+                    onChange={(e) => setCurrentAcademicInterest(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItemToList(currentAcademicInterest, academicInterests, setAcademicInterests, setCurrentAcademicInterest);}}}
                     placeholder="Type an interest and press Enter"
                     focusBorderColor={inputFocusBorderColor}
                   />
                   <Wrap mt={2} spacing={2}>
-                    {interests.map(interest => (
+                    {academicInterests.map(interest => (
                       <WrapItem key={interest}>
                         <Tag size="md" borderRadius="full" variant="solid" colorScheme="blue">
                           <TagLabel>{interest}</TagLabel>
-                          <TagCloseButton onClick={() => removeInterest(interest)} />
+                          <TagCloseButton onClick={() => removeItemFromList(interest, academicInterests, setAcademicInterests)} />
+                        </Tag>
+                      </WrapItem>
+                    ))}
+                  </Wrap>
+                </FormControl>
+
+                <FormControl id="research_interests">
+                  <FormLabel>Research Interests</FormLabel>
+                  <Input
+                    value={currentResearchInterest}
+                    onChange={(e) => setCurrentResearchInterest(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItemToList(currentResearchInterest, researchInterests, setResearchInterests, setCurrentResearchInterest);}}}
+                    placeholder="Type an interest and press Enter"
+                    focusBorderColor={inputFocusBorderColor}
+                  />
+                  <Wrap mt={2} spacing={2}>
+                    {researchInterests.map(interest => (
+                      <WrapItem key={interest}>
+                        <Tag size="md" borderRadius="full" variant="solid" colorScheme="teal">
+                          <TagLabel>{interest}</TagLabel>
+                          <TagCloseButton onClick={() => removeItemFromList(interest, researchInterests, setResearchInterests)} />
                         </Tag>
                       </WrapItem>
                     ))}
@@ -648,11 +670,11 @@ export default function ProfileSetup() {
                   <Input
                     value={currentExtracurricular}
                     onChange={(e) => setCurrentExtracurricular(e.target.value)}
+                    placeholder="Type an interest and press Enter"
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItemToList(currentExtracurricular, extracurricularActivities, setExtracurricularActivities, setCurrentExtracurricular);}}}
                   />
                   <Wrap mt={2} spacing={2} >{extracurricularActivities.map(act => ( <Tag key={act}><TagLabel>{act}</TagLabel><TagCloseButton onClick={() => removeItemFromList(act, extracurricularActivities, setExtracurricularActivities)} /></Tag> ))}</Wrap>
                 </FormControl>
-                {/* ... (Similar for Research Interests and Skills) ... */}
               </VStack>
             </TabPanel>
 
@@ -692,6 +714,7 @@ export default function ProfileSetup() {
                   <Input
                     value={currentCampusInvolvement}
                     onChange={(e) => setCurrentCampusInvolvement(e.target.value)}
+                    placeholder="Type a Campus involvement and press Enter"
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItemToList(currentCampusInvolvement, campusInvolvement, setCampusInvolvement, setCurrentCampusInvolvement);}}}
                   />
                   <Wrap mt={2} spacing={2} >{campusInvolvement.map(inv => ( <Tag key={inv}><TagLabel>{inv}</TagLabel><TagCloseButton onClick={() => removeItemFromList(inv, campusInvolvement, setCampusInvolvement)} /></Tag> ))}</Wrap>
