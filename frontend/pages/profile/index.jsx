@@ -1,6 +1,6 @@
 // pages/profile/index.jsx
 import { useState, useEffect, useCallback } from 'react';
-import { useSession } from 'next-auth/react';
+import { supabase } from '../../lib/supabase';
 import { useRouter } from 'next/router';
 import {
   Box,
@@ -77,7 +77,6 @@ const getSemesterValue = (semesterName) => {
 };
 
 export default function ProfileSetup() {
-  const { data: session, status } = useSession();
   const router = useRouter();
 
   // --- Academic Tab States ---
@@ -96,9 +95,7 @@ export default function ProfileSetup() {
   const [currentExtracurricular, setCurrentExtracurricular] = useState('');
   const [researchInterests, setResearchInterests] = useState([]);
   const [skills, setSkills] = useState([]);
-
-  // --- Preferences Tab States ---
-  const [preferredStudyResources, setPreferredStudyResources] = useState([]); // For CheckboxGroup
+  const [preferredStudyResources, setPreferredStudyResources] = useState([]);
   const [communicationPreferences, setCommunicationPreferences] = useState('');
 
   // --- University Specific Tab States ---
@@ -111,14 +108,12 @@ export default function ProfileSetup() {
   const [name, setName] = useState('');
   const [isNameEditing, setIsNameEditing] = useState(false);
   const [selectedPrograms, setSelectedPrograms] = useState([]);
-  const [interests, setInterests] = useState([]);
-  const [currentInterest, setCurrentInterest] = useState('');
   const [currentResearchInterest, setCurrentResearchInterest] = useState('');
   const [careerGoal, setCareerGoal] = useState('');
   
   // State for the program dropdown and loading indicators
   // const [availablePrograms, setAvailablePrograms] = useState([]);
-  const [isPageLoading, setIsPageLoading] = useState(true); // For initial data fetch
+  const [isLoading, setIsLoading] = useState(true); // For initial data fetch
   const [isSubmitting, setIsSubmitting] = useState(false); // For form submission
 
   const [semesters, setSemesters] = useState({}); 
@@ -140,57 +135,54 @@ export default function ProfileSetup() {
   const sortedYears = Object.keys(semestersByYear).sort((a, b) => b - a);
 
   const loadProgramOptions = (inputValue, callback) => {
-    // Don't make an API call if the input is too short
-    if (!inputValue || inputValue.length < 2) {
-      callback([]);
-      return;
-    }
+  // Don't make an API call if the input is too short
+  if (!inputValue || inputValue.length < 2) {
+    callback([]);
+    return;
+  }
 
-    // Fetch from your API, passing the user's input to the 'q' query parameter
-    fetch(`/api/programs?q=${inputValue}`)
-      .then(res => res.json())
-      .then(data => {
-        // The API returns { programs: [...] }, so we need to access that key
-        callback(data.programs || []);
-      })
-      .catch(() => {
-        // On error, return an empty array
-        callback([]);
-      });
+// Fetch from your API, passing the user's input to the 'q' query parameter
+  fetch(`/api/programs?q=${inputValue}`)
+    .then(res => res.json())
+    .then(data => {
+    // The API returns { programs: [...] }, so we need to access that key
+    callback(data.programs || []);
+    })
+    .catch(() => {
+    // On error, return an empty array
+    callback([]);
+    });
   };
 
+  // --- B. UNIFIED USEEFFECT FOR AUTH & DATA LOADING ---
   useEffect(() => {
-    // Make sure we have a session before trying to fetch data
-    if (status === 'authenticated') {
-      setIsPageLoading(true);
+    const initializeProfile = async () => {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-      fetch('/api/user/profile')
-        .then(res => {
-          if (res.ok) return res.json();
-          // If no profile exists yet, that's fine, we'll just use the empty state
-          return null; 
-        })
-        .then(data => {
-          if (data && data.profile) {
-            const profile = data.profile;
-            // --- Populate all form fields with data from the database ---
-            setName(profile.name || session.user.name || '');
+      if (sessionError || !session) {
+        router.push('/');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/user/profile', {
+          method: 'GET', // Explicitly set GET method
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (response.ok) {
+          const { profile } = await response.json();
+          if (profile) {
+            // Populate all form fields
+            setName(profile.name || '');
             setTransferCourses(profile.transferCourses || []);
-            
-            if (profile.majors && Array.isArray(profile.majors)) {
-              const savedPrograms = profile.majors.map(majorName => ({
-                value: majorName, // Use the name itself as the value
-                label: majorName, // And as the label
-              }));
-              setSelectedPrograms(savedPrograms);
-            } else {
-              setSelectedPrograms([]);
-            }
-            
+            setSelectedPrograms(profile.majors?.map(m => ({ label: m, value: m })) || []);
             setAcademicInterests(profile.academicInterests || []);
             setCareerGoal(profile.careerGoal || '');
             setSemesters(profile.semesters || {});
-            setCurrentCourses(profile.currentCourses ? profile.currentCourses.join(', ') : '');
+            setCurrentCourses(Array.isArray(profile.currentCourses) ? profile.currentCourses.join(', ') : '');
             setLearningStyles(profile.learningStyles || []);
             setAcademicGoals(profile.academicGoals || []);
             setAreasOfDifficulty(profile.areasOfDifficulty || []);
@@ -201,16 +193,101 @@ export default function ProfileSetup() {
             setCommunicationPreferences(profile.communicationPreferences || '');
             setCampusInvolvement(profile.campusInvolvement || []);
             setUseOfUniversityResources(profile.useOfUniversityResources || []);
-            
-          } else {
-            setName(session?.user?.name || '');
           }
-          setIsPageLoading(false);
-        });
-    } else if (status === 'unauthenticated') {
-      router.push('/api/auth/signin');
+        } else {
+          console.error("API response not OK:", await response.text());
+        }
+      } catch (error) {
+        console.error("Error fetching profile:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeProfile();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        router.push('/');
+      } else {
+        setName(session?.user?.name || '');
+      }
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+
+  }, [router]);
+
+  // --- C. CLEANED-UP HANDLESUBMIT FUNCTION ---
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    if (!name || !name.trim()) {
+      alert('Name is a required field. Please enter your name.');
+      setIsSubmitting(false); // Stop the loading spinner
+      return; // Stop the function from proceeding
     }
-  }, [status, session]);
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+        alert("You must be logged in to save your profile.");
+        setIsSubmitting(false);
+        return;
+    }
+
+    const currentCoursesArray = (currentCourses || '').split(',').map(item => item.trim()).filter(Boolean);
+    const profileData = {
+      name,
+      majors: selectedPrograms.map(p => p.label),
+      semesters,
+      currentCourses: currentCoursesArray,
+      learningStyles,
+      academicGoals,
+      areasOfDifficulty,
+      careerGoal,
+      academicInterests,
+      extracurricularActivities,
+      researchInterests,
+      skills,
+      preferredStudyResources,
+      communicationPreferences,
+      campusInvolvement,
+      useOfUniversityResources,
+      transferCourses,
+    };
+    
+    const formData = new FormData();
+    formData.append('profileData', JSON.stringify(profileData));
+    if (uploadedFile) {
+      formData.append('apasReport', uploadedFile);
+    }
+    
+    try {
+        const response = await fetch('/api/user/profile', {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: formData,
+        });
+
+        if (response.ok) {
+            alert('Profile saved successfully!');
+            router.reload();
+        } else {
+            const errorData = await response.json();
+            alert(`Failed to save profile: ${errorData.error || 'Unknown error'}`);
+        }
+    } catch(error) {
+        console.error("Error submitting form:", error);
+        alert("An error occurred while saving.");
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
   
   const handleAddSemester = () => {
     if (newSemesterName && !semesters[newSemesterName]) {
@@ -254,67 +331,12 @@ export default function ProfileSetup() {
       setUploadedFile(acceptedFiles[0]);
     }
   }, []);
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: { 'application/pdf': ['.pdf'] },
     multiple: false,
   });
-
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    // Example: For fields that are simple strings from a textarea, but you want an array
-    const currentCoursesArray = currentCourses.split(',').map(item => item.trim()).filter(Boolean);
-
-    const profileData = {
-      name,
-      majors: selectedPrograms.map(p => p.label),
-      semesters,
-      currentCourses: currentCoursesArray,
-      learningStyles,
-      academicGoals,
-      areasOfDifficulty,
-      careerGoal,
-      academicInterests,
-      extracurricularActivities,
-      researchInterests,
-      skills,
-      preferredStudyResources,
-      communicationPreferences,
-      campusInvolvement,
-      useOfUniversityResources,
-      transferCourses,
-    };
-    console.log("1. [FRONTEND] Sending this data to the API:", JSON.stringify(profileData, null, 2));
-
-    const formData = new FormData();
-    
-    formData.append('profileData', JSON.stringify(profileData));
-
-    if (uploadedFile) {
-      formData.append('apasReport', uploadedFile);
-    }
-    
-    const response = await fetch('/api/user/profile', {
-      method: 'PUT',
-      body: formData,
-    });
-
-    setIsSubmitting(false);
-    if (response.ok) {
-      const data = await response.json();
-      alert('Profile saved successfully!');
-      setSemesters(data.profile.semesters || {});
-      setTransferCourses(data.profile.transferCourses || []);
-      setUploadedFile(null); // Clear the uploaded file state
-      // Force a reload of the page to fetch the new data from the server.
-      router.reload();
-    } else {
-      alert('Failed to save profile.');
-    }
-  };
 
   // Chakra UI color mode values for dynamic styling
   const formBg = useColorModeValue('white', 'gray.700');
@@ -335,7 +357,7 @@ export default function ProfileSetup() {
     setList(list.filter(i => i !== itemToRemove));
   };
 
-  if (isPageLoading || status === 'loading') {
+  if (isLoading) {
     return (
       <Flex justify="center" align="center" height="100vh">
         <Spinner size="xl" />
@@ -389,6 +411,14 @@ export default function ProfileSetup() {
         color: useColorModeValue('gray.500', 'gray.400'),
     }),
   };
+
+  if (isLoading) {
+    return (
+      <Flex justify="center" align="center" height="100vh">
+        <Spinner size="xl" />
+      </Flex>
+    );
+  }
 
   return (
   <Box 

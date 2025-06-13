@@ -1,18 +1,28 @@
 // pages/api/profile.js
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../auth/[...nextauth]'; // Adjust if your file name is different
-import dbConnect from '../../../lib/mongoose';
-import Profile from '../../../models/Profile';
+import { createClient } from '@supabase/supabase-js';
+import dbConnect from '../../lib/mongoose';
+import Profile from '../../models/Profile';
 
 export default async function handler(req, res) {
-  const session = await getServerSession(req, res, authOptions);
+  const token = req.headers.authorization?.split(' ')[1];
 
-  if (!session) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized: No token provided' });
+  }
+
+  // 2. Verify the token using Supabase
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL, 
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+  const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+  if (userError || !user) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid token' });
   }
 
   await dbConnect();
-  const userId = session.user.id;
+  const userId = user.id;
 
   if (req.method === 'GET') {
     try {

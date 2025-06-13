@@ -3,7 +3,7 @@ import mongoose, { Schema, model, models } from 'mongoose';
 
 const profileSchema = new Schema({
   _id: { type: String, required: true }, // From API
-  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
+  userId: { type: String, required: true, unique: true },
   name: { type: String, required: true },
   
   // --- Academic Tab ---

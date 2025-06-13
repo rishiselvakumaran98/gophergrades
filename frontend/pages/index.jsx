@@ -16,7 +16,6 @@ import SearchBar from "../components/Search/SearchBar";
 import SearchResults from "../components/Search/SearchResults";
 import { useSearch } from "../components/Search/useSearch";
 import { searchDurations } from "../lib/config";
-import { useSession } from "next-auth/react";
 
 const ChromeExtensionBanner = dynamic(
   import("../components/ChromeExtensionBanner"),
@@ -24,7 +23,6 @@ const ChromeExtensionBanner = dynamic(
 );
 
 const Home = () => {
-  const { data: session } = useSession();
   const {
     search,
     searchResults,

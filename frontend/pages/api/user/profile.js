@@ -1,6 +1,5 @@
 // pages/api/user/profile.js
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../auth/[...nextauth]'; // Adjust if your file name is different
+import { createClient } from '@supabase/supabase-js';
 import dbConnect from '../../../lib/mongoose';
 import Profile from '../../../models/Profile';
 import { IncomingForm } from 'formidable';
@@ -111,18 +110,65 @@ const parseForm = (req) => {
 };
 
 export default async function handler(req, res) {
-  const session = await getServerSession(req, res, authOptions);
+  await dbConnect();
 
-  if (!session) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  if (req.method === 'POST') {
+    const body = await new Promise((resolve) => {
+        let data = '';
+        req.on('data', chunk => { data += chunk; });
+        req.on('end', () => { resolve(JSON.parse(data || '{}')); });
+    });
+
+    const { session } = body;
+    if (!session || !session.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    const { user } = session;
+    const isUmn = user.email.endsWith('@umn.edu');
+    try {
+        await Profile.findOneAndUpdate(
+            { userId: user.id }, // Use the Supabase user ID as the unique identifier
+            { 
+              $set: {
+                email: user.email,
+                name: user.user_metadata?.full_name,
+                isUmn,
+              },
+              $setOnInsert: { // Only set these for new users
+                semesters: {},
+                transferCourses: [],
+              }
+            },
+            { new: true, upsert: true, runValidators: true }
+        );
+        return res.status(200).json({ success: true, message: "Profile created/updated." });
+    } catch (error) {
+        console.error("Error in POST /api/user/profile:", error);
+        return res.status(500).json({ success: false, error: 'Database error on profile creation.' });
+    }
   }
 
-  await dbConnect();
-  const userId = session.user.id;
+  // 1. Get the JWT from the Authorization header
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized: No token provided' });
+  }
+  // 2. Verify the token with Supabase
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL, 
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+  const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+  if (userError || !user) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+  }
+
+  // --- At this point, the user is authenticated ---
 
   if (req.method === 'GET') {
     try {
-      const profile = await Profile.findOne({ userId });
+      const profile = await Profile.findOne({ userId: user.id });
       if (!profile) {
         return res.status(404).json({ error: 'Profile not found.' });
       }
@@ -168,9 +214,10 @@ export default async function handler(req, res) {
       }
       profileData.semesters = filteredSemesters;
 
+      console.log("[BACKEND] Attempting to save this data to DB:", profileData);
 
       const updatedProfile = await Profile.findOneAndUpdate(
-        { userId: session.user.id },
+        { userId: user.id }, 
         { $set: profileData },
         { new: true, upsert: true, runValidators: true }
       );

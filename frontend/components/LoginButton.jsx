@@ -1,7 +1,6 @@
 // components/LoginButton.jsx
 "use client";
-
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useState, useEffect } from "react";
 import NextLink from "next/link"; // Renamed to avoid conflict with Chakra's Link
 import {
   Button,
@@ -12,9 +11,44 @@ import {
   Spinner,
   useColorModeValue
 } from "@chakra-ui/react";
+import { supabase } from '../lib/supabase';
 
 export const LoginButton = () => {
-  const { data: session, status } = useSession();
+  const [session, setSession] = useState(null);
+  const [status, setStatus] = useState('loading');
+
+  useEffect(() => {
+    // Immediately check for an existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setStatus(session ? 'authenticated' : 'unauthenticated');
+    });
+
+    // Listen for changes in authentication state (login/logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setStatus(session ? 'authenticated' : 'unauthenticated');
+    });
+
+    // Cleanup the subscription when the component unmounts
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
+
+  // Login handler
+  const handleGoogleLogin = async () => {
+    setStatus('loading');
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+    });
+  };
+
+  // Logout handler
+  const handleLogout = async () => {
+    setStatus('loading');
+    await supabase.auth.signOut();
+  };
 
   // Define colors using semantic tokens or direct values, adaptable to theme
   const buttonBg = useColorModeValue('brand.maroon', 'brand.neonMaroon'); // Assuming you have neonMaroon for dark mode
@@ -42,7 +76,7 @@ export const LoginButton = () => {
     );
   }
 
-  if (status === "authenticated") {
+  if (status === "authenticated" && session) {
     return (
       <Menu>
         <MenuButton
@@ -56,7 +90,7 @@ export const LoginButton = () => {
           _hover={{ filter: 'brightness(90%)' }}
           _active={{ filter: 'brightness(80%)' }}
         >
-          Hi, {session.user?.name?.split(" ")[0]}
+          Hi, {session.user?.user_metadata?.full_name?.split(" ")[0] || session.user?.email?.split("@")[0]}
         </MenuButton>
         <MenuList 
             bg={dropdownBg} 
@@ -74,7 +108,7 @@ export const LoginButton = () => {
             Profile
           </MenuItem>
           <MenuItem
-            onClick={() => signOut()}
+            onClick={handleLogout}
             bg={dropdownBg}
             color={dropdownTextColor}
             _hover={{ bg: dropdownItemHoverBg }}
@@ -88,7 +122,7 @@ export const LoginButton = () => {
 
   return (
     <Button
-      onClick={() => signIn("google")}
+      onClick={handleGoogleLogin}
       bg={buttonBg}
       color={buttonColor}
       px={6}
@@ -98,7 +132,7 @@ export const LoginButton = () => {
       _hover={{ filter: 'brightness(90%)' }}
       _active={{ filter: 'brightness(80%)' }}
     >
-      Login / Sign Up
+      Login
     </Button>
   );
 };
