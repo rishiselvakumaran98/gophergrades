@@ -1,0 +1,29 @@
+# Step 1: Use an official NVIDIA CUDA base image to ensure GPU compatibility.
+# This version is based on Ubuntu 22.04 and includes CUDA 12.1.
+FROM nvidia/cuda:12.1.0-base-ubuntu22.04
+
+# Step 2: Set up the environment
+# Avoids interactive prompts during installation
+ENV DEBIAN_FRONTEND=noninteractive
+# Set the working directory inside the container
+WORKDIR /app
+
+# Step 3: Install Python and pip
+RUN apt-get update && \
+    apt-get install -y python3 python3-pip && \
+    rm -rf /var/lib/apt/lists/*
+
+# Step 4: Install Python dependencies
+# First, copy just the requirements file to leverage Docker's layer caching
+COPY requirements.txt .
+# Then, install the libraries
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Step 5: Copy your application files into the container
+# This includes your main script and the .env file for secrets
+COPY generate_summaries.py .
+COPY .env .
+
+# Step 6: Define the command to run when the container starts
+# This will execute your Python script automatically
+CMD ["python3", "generate_summaries.py"]

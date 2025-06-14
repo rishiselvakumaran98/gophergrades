@@ -1,0 +1,53 @@
+# This docker-compose file defines a multi-container application.
+# It sets up your summary agent and an Ollama LLM server to run together.
+version: '3.8'
+
+services:
+  # Service 1: Your Python application
+  summary-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # This makes your agent wait for the Ollama service to be healthy before starting.
+    depends_on:
+      ollama:
+        condition: service_started
+    # Connects this container to the shared network so it can find 'ollama'
+    networks:
+      - gopher-net
+    # Pass environment variables to the container
+    env_file:
+      - .env
+    environment:
+      # This tells the Python script where to find the Ollama server inside the Docker network.
+      - OLLAMA_HOST=http://ollama:11434
+
+  # Service 2: The Ollama LLM Server (the "sidecar")
+  ollama:
+    # Use the official Ollama image which includes CUDA support
+    image: ollama/ollama
+    # Connects this container to the shared network
+    networks:
+      - gopher-net
+    # This block is essential for GPU access on platforms like Salad.
+    # It tells the container runtime that THIS service requires the GPU.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    # Mount a volume to persist the downloaded LLM models. This means
+    # you won't have to re-download models every time the container restarts.
+    volumes:
+      - ollama-data:/root/.ollama
+
+# Defines the shared virtual network for the containers to communicate
+networks:
+  gopher-net:
+    driver: bridge
+
+# Defines the named volume for model storage
+volumes:
+  ollama-data:

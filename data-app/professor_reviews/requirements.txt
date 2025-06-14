@@ -1,0 +1,6 @@
+pymongo
+qdrant-client
+scikit-learn
+numpy
+python-dotenv
+ollama
