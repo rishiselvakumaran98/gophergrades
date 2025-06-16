@@ -15,8 +15,8 @@ const SearchBar = ({
 
   return (
     <InputGroup>
-      <InputLeftElement pointerEvents={"none"}>
-        <Search2Icon color={"black"} />
+      <InputLeftElement pointerEvents={"none"} display="flex" alignItems="center" height="100%">
+        <Search2Icon color={"black"} fontSize="24px" style={{ paddingLeft: "6px", paddingRight: "2px" }} />
       </InputLeftElement>
       <Input
         type={"text"}
@@ -29,20 +29,23 @@ const SearchBar = ({
           }
         }}
         placeholder={placeholder}
+        _placeholder={{ color: "#AEAEAE" }}
         background={"rgba(255,255,255,0.3)"}
-        boxShadow={"0px 0px 20px rgba(111, 19, 29, 0.1)"}
+        boxShadow={"0px 0px 20px rgba(85, 85, 85, 0.2)"}
+        height="60px"
         style={{
-          borderRadius: "9px",
+          borderRadius: "12px",
           border: "none",
         }}
         _hover={{
           background: "rgba(255,255,255,0.7)",
-          boxShadow: "0px 0px 20px rgba(111, 19, 29, 0.1)",
+          boxShadow: "0px 0px 20px rgba(88, 88, 88, 0.2)",
         }}
         _focus={{
           boxShadow: "0px 0px 20px rgba(111, 19, 29, 0.35)",
           background: "rgba(255,255,255,0.9)",
         }}
+        fontSize="15pt"
       />
     </InputGroup>
   );

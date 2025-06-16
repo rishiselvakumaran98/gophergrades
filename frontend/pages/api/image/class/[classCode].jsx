@@ -13,7 +13,7 @@ const IBMPlexSans = fetch(
 
 export default async function handler(req) {
   // get classCode
-  const { searchParams } = new URL(req.url);
+  const { searchParams } = new URL(req.url, "http://localhost");
   const classCode = searchParams.get("classCode");
 
   if (!classCode) return null;

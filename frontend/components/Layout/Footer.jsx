@@ -164,8 +164,8 @@ const ContributorGroup = () => {
 
 export const Footer = () => {
   return (
-    <Box pt={10} pb={10}>
-      <Divider borderColor={"rgba(91,0,19,0.42)"} mb={4} />
+    <Box pt={100} pb={10} px={['2vw','3vw','5vw']}>
+      <Divider borderColor={"rgba(192, 192, 192, 0.42)"} mb={4} width="100%" mx="auto" borderBottomWidth="2px" />
       <VStack spacing={4}>
         <ContributorGroup />
         <Text
