@@ -7,8 +7,26 @@ from dotenv import load_dotenv
 import time
 import ollama
 import json
+import logging
+import sys
 
-# --- 1. Configuration ---
+# --- 1. Logging Configuration ---
+# Configure logger to output to both a file and the console.
+log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger()
+logger.setLevel(logging.INFO) # Set the minimum level of messages to log
+
+# File handler to write logs to a file
+file_handler = logging.FileHandler("review_summary.log", mode='w') # 'w' to overwrite the file each run
+file_handler.setFormatter(log_formatter)
+logger.addHandler(file_handler)
+
+# Console handler to print logs to the console
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setFormatter(log_formatter)
+logger.addHandler(console_handler)
+
+# --- 2. Configuration ---
 load_dotenv()
 MONGO_URI = os.environ.get("MONGO_CONNECTION_STRING")
 QDRANT_URL = os.environ.get("QDRANT_URL")
@@ -18,11 +36,17 @@ MONGO_DB_NAME = "test"
 PROFESSORS_COLLECTION = "professors"
 QDRANT_REVIEWS_COLLECTION = "professor_reviews"
 
-local_llm_client = ollama.Client()
-# A quick check to make sure the model is available
-local_llm_client.show("deepseek-r1:14b")
-LOCAL_MODEL_NAME = "deepseek-r1:14b"  # Change this to your local model name if different
-print("Ollama AI client initialized and connected.")
+try:
+    local_llm_client = ollama.Client()
+    # A quick check to make sure the model is available
+    local_llm_client.show("deepseek-r1:14b")
+    LOCAL_MODEL_NAME = "deepseek-r1:14b"
+    logging.info("Ollama AI client initialized and connected.")
+except Exception as e:
+    logging.critical(f"Could not connect to Ollama. Exiting. Error: {e}", exc_info=True)
+    sys.exit(1) # Exit the script if we can't connect to the LLM
+
+
 
 # --- Hyperparameters for the Agent ---
 # The number of distinct themes you want to find in the reviews. 5-7 is often a good start.
@@ -78,7 +102,7 @@ def summarize_reviews_for_theme(reviews, theme_description):
         # The raw output is now parsed by the improved function
         return extract_clean_summary(raw_output)
     except Exception as e:
-        print(f"Error summarizing theme with local LLM: {e}")
+        logging.error(f"Error summarizing theme with local LLM: {e}", exc_info=True)
         return None
     
 
@@ -141,26 +165,31 @@ def create_final_holistic_summary(themed_summaries, professor_name, department):
                  # If parsing succeeds but the structure is wrong, return the cleaned string
                  return {"summary": clean_json_str, "tags": []}
         except (json.JSONDecodeError, TypeError):
-             # If JSON parsing fails, return the cleaned output for debugging
-            return {"summary": clean_json_str, "tags": []}
+             logging.warning(f"Failed to decode JSON for Professor {professor_name}. Raw output: {clean_json_str}")
+             return {"summary": clean_json_str, "tags": []}
 
     except Exception as e:
-        print(f"Error creating final summary with local LLM: {e}")
-        return {"summary": "AI summary could not be generated due to an error.", "tags": []}  
+        logging.error(f"Error creating final summary for {professor_name}: {e}", exc_info=True)
+        return {"summary": "AI summary could not be generated due to an error.", "tags": []}
+ 
 
 
 # --- 3. Main Agent Logic ---
 def process_professors():
-    mongo_client = MongoClient(MONGO_URI)
-    db = mongo_client[MONGO_DB_NAME]
-    professors_collection = db[PROFESSORS_COLLECTION]
-    
-    qdrant_client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+    try:
+        mongo_client = MongoClient(MONGO_URI)
+        db = mongo_client[MONGO_DB_NAME]
+        professors_collection = db[PROFESSORS_COLLECTION]
+        qdrant_client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+        logging.info("Successfully connected to MongoDB and Qdrant.")
+    except Exception as e:
+        logging.critical(f"Failed to connect to databases. Exiting. Error: {e}", exc_info=True)
+        return
 
     page_number = 0
     
     while True:
-        print(f"\n--- Processing Professor Batch #{page_number + 1} ---")
+        logging.info(f"\n--- Processing Professor Batch #{page_number + 1} ---")
         
         # Define the query to find professors that need an AI summary
         query = {"aiSummary": {"$exists": False}}
@@ -176,7 +205,7 @@ def process_professors():
 
         # If the batch is empty, it means we've processed all professors
         if not professors_to_process:
-            print("\n--- No more professors to process. All summaries are up to date. ---")
+            logging.info("\n--- No more professors to process. All summaries are up to date. ---")
             break
 
         # Process each professor found in the current batch
@@ -185,7 +214,7 @@ def process_professors():
             prof_name = professor.get("name")
             prof_name = professor.get("name")
             prof_dept = professor.get("department", "their department") # Provide a fallback
-            print(f"\n--- Analyzing Professor: {prof_name} (ID: {prof_id}) ---")
+            logging.info(f"\n--- Analyzing Professor: {prof_name} (ID: {prof_id}) ---")
 
             # 1. Fetch all reviews for this professor from Qdrant
             try:
@@ -199,16 +228,16 @@ def process_professors():
                     with_vectors=["review"]
                 )
             except Exception as e:
-                print(f"  > Could not fetch reviews from Qdrant: {e}")
+                logging.error(f"  > Could not fetch reviews from Qdrant: {e}", exc_info=True)
                 continue # Skip to the next professor in the batch
 
             if len(review_points) < NUM_CLUSTERS:
-                print(f"  > Not enough reviews ({len(review_points)}) to generate a summary. Skipping.")
+                logging.warning(f"  > Not enough reviews ({len(review_points)}) to generate a summary. Skipping.")
                 continue
             
             # --- The rest of your logic for clustering, summarizing, and updating remains the same ---
 
-            print(f"  > Found {len(review_points)} reviews. Clustering into {NUM_CLUSTERS} themes...")
+            logging.info(f"  > Found {len(review_points)} reviews. Clustering into {NUM_CLUSTERS} themes...")
             vectors = np.array([point.vector['review'] for point in review_points]) # type: ignore
             kmeans = KMeans(n_clusters=NUM_CLUSTERS, random_state=42, n_init='auto').fit(vectors)
             
@@ -218,7 +247,7 @@ def process_professors():
                 clustered_reviews[cluster_id].append(point.payload['review_text']) # type: ignore
 
             themed_summaries = []
-            print("  > Summarizing themes...")
+            logging.info("  > Summarizing themes...")
             for i in range(NUM_CLUSTERS):
                 if clustered_reviews[i]:
                     summary = summarize_reviews_for_theme(clustered_reviews[i], f"Theme {i+1}")
@@ -226,26 +255,30 @@ def process_professors():
                         themed_summaries.append(summary)
 
             if not themed_summaries:
-                print("  > Could not generate any themed summaries. Skipping.")
+                logging.warning("  > Could not generate any themed summaries. Skipping.")
                 continue
             
-            print("  > Generating final holistic summary...")
+            logging.info("  > Generating final holistic summary...")
             summary_data = create_final_holistic_summary(themed_summaries, prof_name, prof_dept)
             # with open(f"professor_summaries/{prof_id}_summary.txt", "w") as f:
             #     f.write(final_summary)
-            print(f"  > Final summary for {prof_name}:\n{summary_data.get("summary")}\n")
+            logging.info(f"  > Final summary for {prof_name}:\n{summary_data.get("summary")}\n")
             
             
             # Update the professor's document in MongoDB
-            professors_collection.update_one(
-                {"_id": prof_id},
-                {"$set": {
-                    "aiSummary": summary_data.get("summary"),
-                    "aiSummaryTags": summary_data.get("tags"),
-                    "summaryLastUpdated": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
-                }}
-            )
-            print(f"  > Successfully updated MongoDB for {prof_name}.")
+            try:
+                professors_collection.update_one(
+                    {"_id": prof_id},
+                    {"$set": {
+                        "aiSummary": summary_data.get("summary"),
+                        "aiSummaryTags": summary_data.get("tags"),
+                        "summaryLastUpdated": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
+                    }}
+                )
+                logging.info(f"Successfully updated MongoDB for {prof_name}.")
+            except Exception as e:
+                logging.error(f"Failed to update MongoDB for {prof_name}. Error: {e}", exc_info=True)
+
 
         # Go to the next page in the next iteration of the while loop
         page_number += 1

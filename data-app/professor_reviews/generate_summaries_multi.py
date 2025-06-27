@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 import time
 import ollama
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from tqdm import tqdm
 
 # --- 1. Configuration ---
 load_dotenv()
@@ -18,19 +20,24 @@ MONGO_DB_NAME = "test"
 PROFESSORS_COLLECTION = "professors"
 QDRANT_REVIEWS_COLLECTION = "professor_reviews"
 
-local_llm_client = ollama.Client()
-# A quick check to make sure the model is available
-local_llm_client.show("deepseek-r1:14b")
-LOCAL_MODEL_NAME = "deepseek-r1:14b"  # Change this to your local model name if different
-print("Ollama AI client initialized and connected.")
-
 # --- Hyperparameters for the Agent ---
-# The number of distinct themes you want to find in the reviews. 5-7 is often a good start.
-NUM_CLUSTERS = 6 
+NUM_CLUSTERS = 6
+PROFESSOR_BATCH_SIZE = 10  # This is now the size of the batch for tqdm
+MAX_PROFESSOR_WORKERS = 4 # Number of professors to process in parallel
+MAX_THEME_WORKERS = 6     # Number of themes to summarize in parallel for a single professor
 
-PROFESSOR_BATCH_SIZE = 10
+# Initialize a single Ollama client to be shared across threads
+# Ollama's client is generally thread-safe.
+local_llm_client = ollama.Client()
+try:
+    local_llm_client.show("deepseek-r1:14b")
+    LOCAL_MODEL_NAME = "deepseek-r1:14b"
+    print("Ollama AI client initialized and connected.")
+except Exception as e:
+    print(f"Error connecting to Ollama: {e}")
+    exit()
 
-# --- 2. LLM Helper Functions ---
+# --- 2. LLM Helper Functions (Mostly Unchanged) ---
 
 def extract_clean_summary(raw_output: str) -> str:
     """
@@ -149,108 +156,127 @@ def create_final_holistic_summary(themed_summaries, professor_name, department):
         return {"summary": "AI summary could not be generated due to an error.", "tags": []}  
 
 
-# --- 3. Main Agent Logic ---
-def process_professors():
+# --- 3. Main Processing Logic ---
+
+def process_single_professor(professor_doc):
+    """
+    Encapsulated logic to process one professor.
+    This function is designed to be called by a thread.
+    """
+    prof_id = professor_doc.get("_id")
+    prof_name = professor_doc.get("name", "Unknown Professor")
+    prof_dept = professor_doc.get("department", "their department")
+
+    # Each thread should get its own client instances
+    qdrant_client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+    mongo_client = MongoClient(MONGO_URI)
+    db = mongo_client[MONGO_DB_NAME]
+    professors_collection = db[PROFESSORS_COLLECTION]
+
+    try:
+        review_points, _ = qdrant_client.scroll(
+            collection_name=QDRANT_REVIEWS_COLLECTION,
+            scroll_filter=models.Filter(must=[
+                models.FieldCondition(key="professor_id", match=models.MatchValue(value=str(prof_id)))
+            ]),
+            limit=500,
+            with_payload=True,
+            with_vectors=["review"]
+        )
+    except Exception:
+        return f"Failed to fetch reviews for {prof_name}"
+
+    if len(review_points) < NUM_CLUSTERS:
+        return f"Skipped {prof_name}: Not enough reviews ({len(review_points)})"
+
+    # --- Clustering ---
+    vectors = np.array([point.vector['review'] for point in review_points])
+    kmeans = KMeans(n_clusters=NUM_CLUSTERS, random_state=42, n_init='auto').fit(vectors)
+    clustered_reviews = {i: [] for i in range(NUM_CLUSTERS)}
+    for i, point in enumerate(review_points):
+        cluster_id = kmeans.labels_[i]
+        clustered_reviews[cluster_id].append(point.payload['review_text'])
+
+    # --- Parallel Summarization of Themes ---
+    themed_summaries = []
+    with ThreadPoolExecutor(max_workers=MAX_THEME_WORKERS) as executor:
+        future_to_theme = {
+            executor.submit(summarize_reviews_for_theme, reviews, f"Theme {i+1}"): i
+            for i, reviews in clustered_reviews.items() if reviews
+        }
+        for future in as_completed(future_to_theme):
+            summary = future.result()
+            if summary:
+                themed_summaries.append(summary)
+
+    if not themed_summaries:
+        return f"Skipped {prof_name}: Could not generate themed summaries."
+
+    # --- Final Summary Generation ---
+    summary_data = create_final_holistic_summary(themed_summaries, prof_name, prof_dept)
+
+    # --- Update MongoDB ---
+    try:
+        professors_collection.update_one(
+            {"_id": prof_id},
+            {"$set": {
+                "aiSummary": summary_data.get("summary"),
+                "aiSummaryTags": summary_data.get("tags"),
+                "summaryLastUpdated": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
+            }}
+        )
+        mongo_client.close()
+        return f"Successfully updated {prof_name}"
+    except Exception as e:
+        mongo_client.close()
+        return f"Failed to update MongoDB for {prof_name}: {e}"
+
+
+def run_processing_pipeline():
+    """
+    Main pipeline to fetch professors and process them in parallel.
+    """
     mongo_client = MongoClient(MONGO_URI)
     db = mongo_client[MONGO_DB_NAME]
     professors_collection = db[PROFESSORS_COLLECTION]
     
-    qdrant_client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
-
     page_number = 0
-    
     while True:
-        print(f"\n--- Processing Professor Batch #{page_number + 1} ---")
-        
-        # Define the query to find professors that need an AI summary
+        # Fetch a batch of professors that need processing
         query = {"aiSummary": {"$exists": False}}
-        
-        # THE FIX: Fetch only a small batch of professors in each loop iteration
         skip_amount = page_number * PROFESSOR_BATCH_SIZE
         
+        # We fetch one batch at a time, but process its contents in parallel
         professors_to_process = list(
             professors_collection.find(query)
-            .skip(skip_amount)
             .limit(PROFESSOR_BATCH_SIZE)
         )
 
-        # If the batch is empty, it means we've processed all professors
         if not professors_to_process:
             print("\n--- No more professors to process. All summaries are up to date. ---")
             break
-
-        # Process each professor found in the current batch
-        for professor in professors_to_process:
-            prof_id = professor.get("_id")
-            prof_name = professor.get("name")
-            prof_name = professor.get("name")
-            prof_dept = professor.get("department", "their department") # Provide a fallback
-            print(f"\n--- Analyzing Professor: {prof_name} (ID: {prof_id}) ---")
-
-            # 1. Fetch all reviews for this professor from Qdrant
-            try:
-                review_points, _ = qdrant_client.scroll(
-                    collection_name=QDRANT_REVIEWS_COLLECTION,
-                    scroll_filter=models.Filter(must=[
-                        models.FieldCondition(key="professor_id", match=models.MatchValue(value=prof_id))
-                    ]),
-                    limit=500,
-                    with_payload=True,
-                    with_vectors=["review"]
-                )
-            except Exception as e:
-                print(f"  > Could not fetch reviews from Qdrant: {e}")
-                continue # Skip to the next professor in the batch
-
-            if len(review_points) < NUM_CLUSTERS:
-                print(f"  > Not enough reviews ({len(review_points)}) to generate a summary. Skipping.")
-                continue
             
-            # --- The rest of your logic for clustering, summarizing, and updating remains the same ---
+        print(f"\n--- Processing a batch of {len(professors_to_process)} professors ---")
 
-            print(f"  > Found {len(review_points)} reviews. Clustering into {NUM_CLUSTERS} themes...")
-            vectors = np.array([point.vector['review'] for point in review_points]) # type: ignore
-            kmeans = KMeans(n_clusters=NUM_CLUSTERS, random_state=42, n_init='auto').fit(vectors)
+        # Process the batch in parallel using a ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=MAX_PROFESSOR_WORKERS) as executor:
+            # Create a future for each professor in the batch
+            future_to_prof = {executor.submit(process_single_professor, prof): prof for prof in professors_to_process}
             
-            clustered_reviews = {i: [] for i in range(NUM_CLUSTERS)}
-            for i, point in enumerate(review_points):
-                cluster_id = kmeans.labels_[i]
-                clustered_reviews[cluster_id].append(point.payload['review_text']) # type: ignore
+            # Use tqdm to create a progress bar for the batch
+            progress_bar = tqdm(as_completed(future_to_prof), total=len(professors_to_process), desc="Summarizing Professors")
+            
+            for future in progress_bar:
+                result = future.result()
+                # You can update the progress bar description with the result
+                progress_bar.set_postfix_str(result)
 
-            themed_summaries = []
-            print("  > Summarizing themes...")
-            for i in range(NUM_CLUSTERS):
-                if clustered_reviews[i]:
-                    summary = summarize_reviews_for_theme(clustered_reviews[i], f"Theme {i+1}")
-                    if summary:
-                        themed_summaries.append(summary)
-
-            if not themed_summaries:
-                print("  > Could not generate any themed summaries. Skipping.")
-                continue
-            
-            print("  > Generating final holistic summary...")
-            summary_data = create_final_holistic_summary(themed_summaries, prof_name, prof_dept)
-            # with open(f"professor_summaries/{prof_id}_summary.txt", "w") as f:
-            #     f.write(final_summary)
-            print(f"  > Final summary for {prof_name}:\n{summary_data.get("summary")}\n")
-            
-            
-            # Update the professor's document in MongoDB
-            professors_collection.update_one(
-                {"_id": prof_id},
-                {"$set": {
-                    "aiSummary": summary_data.get("summary"),
-                    "aiSummaryTags": summary_data.get("tags"),
-                    "summaryLastUpdated": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime())
-                }}
-            )
-            print(f"  > Successfully updated MongoDB for {prof_name}.")
-
-        # Go to the next page in the next iteration of the while loop
-        page_number += 1
+        # The 'while True' loop is now just for fetching new batches, 
+        # so we don't need the page_number increment anymore unless we re-introduce skipping.
+        # If your collection is very large, you might re-add the .skip() functionality.
 
     mongo_client.close()
 
+
 if __name__ == "__main__":
-    process_professors()
+    run_processing_pipeline()

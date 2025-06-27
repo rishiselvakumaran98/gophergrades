@@ -1,0 +1,8 @@
+*.env
+*.log
+*pyvenv.cfg
+__pycache__
+include
+bin
+lib
+lib64
