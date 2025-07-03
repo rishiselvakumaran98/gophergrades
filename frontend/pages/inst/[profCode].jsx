@@ -15,8 +15,11 @@ import { distributionsToCards } from "../../components/distributionsToCards";
 import { useSearch } from "../../components/Search/useSearch";
 import SearchResults from "../../components/Search/SearchResults";
 import BigNumberCard from "../../components/BigNumberCard";
+import { getProfessorSummary } from "../../lib/mongodb"; // Import the new function
+// import ReviewSection from "../../components/ReviewSection";
+import AiSummaryCard from "../../components/AiSummaryCard"; // Import the new component
 
-export default function Prof({ profData }) {
+export default function Prof({ profData, summary, reviewsData }) {
   const {
     id,
     name,
@@ -108,21 +111,27 @@ export default function Prof({ profData }) {
           <VStack spacing={4} align={"start"} pb={4} minH={"60vh"}>
             {totalDistributions}
 
-            {RMPScore && (
+            {summary && (
               <Wrap spacing={"8px"} width={"100%"} overflow={"visible"} mb={2}>
                 <BigNumberCard
                   href={RMPLink}
                   source={"Rate My Professor"}
-                  val={RMPScore.toFixed(1)}
+                  val={summary.avgQuality.toFixed(1)}
                   outOf={5}
                 />
                 <BigNumberCard
                   href={RMPLink}
                   source={"Difficulty"}
-                  val={RMPDiff.toFixed(1)}
+                  val={summary.avgDifficulty.toFixed(1)}
                   outOf={5}
                 />
               </Wrap>
+            )}
+            {/* This will render the AiSummaryCard if summary data exists */}
+            {summary && (
+              <Box pt={2} pb={2} width="100%">
+                <AiSummaryCard summary={summary} />
+              </Box>
             )}
             <Divider
               orientation={"horizontal"}
@@ -170,6 +179,10 @@ export async function getServerSideProps({ res, params }) {
   }
 
   const distributions = await getInstructorClasses(profCode);
+  const profName = info[0].name;
+  const summary = await getProfessorSummary(profName);
+  // const reviewsData = await getProfessorReviews(profName, 1); // Fetch the first page
+    
 
   return {
     props: {
@@ -177,6 +190,8 @@ export async function getServerSideProps({ res, params }) {
         ...info[0],
         distributions,
       },
+      summary: summary || null,
+      // reviewsData: reviewsData || null,
     },
   };
 }

@@ -189,6 +189,7 @@ const SingleDistribution = ({ dist, isMobile, isStatic }) => {
             <VStack spacing={3} p={2} pt={3} bg={useColorModeValue("gray.50", "blackAlpha.300")}> 
               {dist.terms?.sort(sortingFunctions.RECENCY).map((term) => (
                 <SingleDistribution
+                  key={dist.id}
                   dist={{
                     ...term,
                     ...Stats({ distribution: term, isMobile }),
