@@ -9,6 +9,38 @@ import {
   Wrap,
 } from '@chakra-ui/react';
 
+const getGradientColor = (rating, type) => {
+  const value = Math.round(parseFloat(rating)); // Round to the nearest whole number
+  if (isNaN(value)) return '#A0AEC0'; // A neutral gray for invalid data
+
+  // Define the color scales based on your SVG example
+  const qualityColors = {
+    1: '#ff0000', // Red
+    2: '#ec6c17', // Orange-Red
+    3: '#ecc94b', // Yellow
+    4: '#93ba41', // Light Green
+    5: '#38a169', // Green
+  };
+
+  const difficultyColors = {
+    1: '#38a169', // Green (Easy)
+    2: '#93ba41', // Light Green
+    3: '#ecc94b', // Yellow
+    4: '#ec6c17', // Orange-Red
+    5: '#ff0000', // Red (Hard)
+  };
+
+  if (type === 'quality') {
+    return qualityColors[value] || '#A0AEC0';
+  }
+  
+  if (type === 'difficulty') {
+    return difficultyColors[value] || '#A0AEC0';
+  }
+
+  return '#A0AEC0'; // Default fallback
+};
+
 const ReviewCard = ({ review }) => {
   const cardBg = useColorModeValue('white', 'gray.700');
   const textColor = useColorModeValue('gray.600', 'gray.300');
@@ -41,8 +73,16 @@ const ReviewCard = ({ review }) => {
         </HStack>
         <Divider />
         <HStack spacing={4}>
-            {renderDetail("Quality", review.quality)}
-            {renderDetail("Difficulty", review.difficulty)}
+            {review.quality && (
+                <Tag size="md" variant="solid" bg={getGradientColor(review.quality, 'quality')} color="white">
+                    Quality: {review.quality} / 5
+                </Tag>
+            )}
+            {review.difficulty && (
+                <Tag size="md" variant="solid" bg={getGradientColor(review.difficulty, 'difficulty')} color="white">
+                    Difficulty: {review.difficulty} / 5
+                </Tag>
+            )}
         </HStack>
         
         {review.reviewText && review.reviewText.trim() && (

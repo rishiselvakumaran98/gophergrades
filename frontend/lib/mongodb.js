@@ -65,55 +65,55 @@ export async function getProfessorSummary(profName) {
   }
 }
 
-// /**
-//  * Fetches paginated reviews for a given professor.
-//  * @param {string} profName - The name of the professor.
-//  * @param {number} page - The page number to fetch.
-//  * @returns {Promise<Object|null>} An object with reviews and pagination data.
-//  */
-// export async function getProfessorReviews(profName, page = 1) {
-//   if (!profName) return null;
+/**
+ * Fetches paginated reviews for a given professor.
+ * @param {string} profName - The name of the professor.
+ * @param {number} page - The page number to fetch.
+ * @returns {Promise<Object|null>} An object with reviews and pagination data.
+ */
+export async function getProfessorReviews(profName, page = 1) {
+  if (!profName) return null;
 
-//   const pageSize = 10;
-//   const skip = (page - 1) * pageSize;
+  const pageSize = 10;
+  const skip = (page - 1) * pageSize;
 
-//   try {
-//     const client = await clientPromise;
-//     const db = client.db("test");
-//     const nameRegex = new RegExp(`^${profName.trim()}$`, "i");
+  try {
+    const client = await clientPromise;
+    const db = client.db("test");
+    const nameRegex = new RegExp(`^${profName.trim()}$`, "i");
 
-//     const reviewsCollection = db.collection("reviews");
-//     await reviewsCollection.createIndex({ "professorName": 1 });
+    const reviewsCollection = db.collection("reviews");
+    await reviewsCollection.createIndex({ "professorName": 1 });
 
-//     const totalReviews = await reviewsCollection.countDocuments({ professorName: nameRegex });
-//     if (totalReviews === 0) return null;
+    const totalReviews = await reviewsCollection.countDocuments({ professorName: nameRegex });
+    if (totalReviews === 0) return null;
 
-//     const reviews = await reviewsCollection
-//       .find({ professorName: nameRegex })
-//       .sort({ date: -1 }) // Sort by most recent date
-//       .skip(skip)
-//       .limit(pageSize)
-//       .toArray();
+    const reviews = await reviewsCollection
+      .find({ professorName: nameRegex })
+      .sort({ date: -1 }) // Sort by most recent date
+      .skip(skip)
+      .limit(pageSize)
+      .toArray();
 
-//     // Sanitize the data for Next.js serialization
-//     const sanitizedReviews = reviews.map(review => ({
-//       ...review,
-//       _id: review._id.toString(), // Convert ObjectId to string
-//       date: new Date(review.date).toLocaleDateString('en-US', {
-//         year: 'numeric', month: 'long', day: 'numeric'
-//       }),
-//     }));
+    // Sanitize the data for Next.js serialization
+    const sanitizedReviews = reviews.map(review => ({
+      ...review,
+      _id: review._id.toString(), // Convert ObjectId to string
+      date: new Date(review.date).toLocaleDateString('en-US', {
+        year: 'numeric', month: 'long', day: 'numeric'
+      }),
+    }));
 
-//     return {
-//       reviews: sanitizedReviews,
-//       currentPage: page,
-//       totalPages: Math.ceil(totalReviews / pageSize),
-//       totalReviews,
-//     };
-//   } catch (e) {
-//     console.error("Error fetching reviews from MongoDB", e);
-//     return null;
-//   }
-// }
+    return {
+      reviews: sanitizedReviews,
+      currentPage: page,
+      totalPages: Math.ceil(totalReviews / pageSize),
+      totalReviews,
+    };
+  } catch (e) {
+    console.error("Error fetching reviews from MongoDB", e);
+    return null;
+  }
+}
 
 export default clientPromise;

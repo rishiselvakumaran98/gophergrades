@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import {
   Box,
   Collapse,
@@ -7,6 +7,9 @@ import {
   useMediaQuery,
   VStack,
   Wrap,
+  Flex, // Add Flex for horizontal layout
+  Button, // Add Button
+  Tag,
 } from "@chakra-ui/react";
 import PageLayout from "../../components/Layout/PageLayout";
 import SearchBar from "../../components/Search/SearchBar";
@@ -15,8 +18,8 @@ import { distributionsToCards } from "../../components/distributionsToCards";
 import { useSearch } from "../../components/Search/useSearch";
 import SearchResults from "../../components/Search/SearchResults";
 import BigNumberCard from "../../components/BigNumberCard";
-import { getProfessorSummary } from "../../lib/mongodb"; // Import the new function
-// import ReviewSection from "../../components/ReviewSection";
+import { getProfessorSummary, getProfessorReviews } from "../../lib/mongodb"; // Import the new function
+import ReviewSection from "../../components/ReviewSection";
 import AiSummaryCard from "../../components/AiSummaryCard"; // Import the new component
 
 export default function Prof({ profData, summary, reviewsData }) {
@@ -36,6 +39,15 @@ export default function Prof({ profData, summary, reviewsData }) {
     pageShown: [showPage, setShowPage],
     handleChange,
   } = useSearch();
+
+  const reviewsRef = useRef(null);
+
+  const handleScrollToReviews = () => {
+    reviewsRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
 
   // map all class distribution to a proper format:
   const formattedDistributions = distributions
@@ -107,7 +119,25 @@ export default function Prof({ profData, summary, reviewsData }) {
             paddingLeft: 10,
           }}
         >
-          <Heading my={4}>{name}</Heading>
+          {/* <Heading my={4}>{name}</Heading> */}
+          <Flex
+            alignItems="center"
+            justifyContent="space-between"
+            width="100%"
+            my={4}
+          >
+            <Heading>{name}</Heading>
+            {/* Add the Reviews button */}
+            <Button
+              onClick={handleScrollToReviews}
+              variant="outline"
+              colorScheme="red" // This will use the red color from your Chakra theme
+              borderColor="red.500"
+              size="md"
+            >
+              Reviews
+            </Button>
+          </Flex>
           <VStack spacing={4} align={"start"} pb={4} minH={"60vh"}>
             {totalDistributions}
 
@@ -142,6 +172,25 @@ export default function Prof({ profData, summary, reviewsData }) {
               }}
             />
             {renderedDistributions}
+
+            {reviewsData && reviewsData.reviews.length > 0 && (
+              <Box ref={reviewsRef} pt={8} width="100%">
+                {/* THE FIX: Use a Flex container to display the heading and count */}
+                <Flex align="center" mb={4}>
+                  <Heading size="lg" mr={3}>
+                    Student Reviews
+                  </Heading>
+                  {/* Display the total review count in a Tag */}
+                  <Tag size="lg" variant="solid" colorScheme="gray" borderRadius="full">
+                    {summary.totalReviews}
+                  </Tag>
+                </Flex>
+                <ReviewSection
+                  initialReviewsData={reviewsData}
+                  profName={name}
+                />
+              </Box>
+            )}
           </VStack>
         </Collapse>
       </Box>
@@ -180,8 +229,18 @@ export async function getServerSideProps({ res, params }) {
 
   const distributions = await getInstructorClasses(profCode);
   const profName = info[0].name;
-  const summary = await getProfessorSummary(profName);
-  // const reviewsData = await getProfessorReviews(profName, 1); // Fetch the first page
+  const summaryData = await getProfessorSummary(profName);
+  const reviewsData = await getProfessorReviews(profName, 1); // Fetch the first page
+  
+  let serializableSummary = null;
+  if (summaryData) {
+    if (summaryData.summaryLastUpdated)
+    serializableSummary = { ...summaryData };
+    const lastUpdated = serializableSummary.summaryLastUpdated;
+    if (lastUpdated && lastUpdated instanceof Date) {
+      serializableSummary.summaryLastUpdated = lastUpdated.toISOString();
+    }
+  }
     
 
   return {
@@ -190,8 +249,8 @@ export async function getServerSideProps({ res, params }) {
         ...info[0],
         distributions,
       },
-      summary: summary || null,
-      // reviewsData: reviewsData || null,
+      summary: serializableSummary || null,
+      reviewsData: reviewsData || null,
     },
   };
 }

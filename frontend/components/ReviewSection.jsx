@@ -2,77 +2,94 @@ import { useState, useEffect } from 'react';
 import {
   Box,
   Heading,
-  VStack,
   Button,
+  VStack,
+  IconButton,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   HStack,
   Spinner,
   Text,
+  Flex,
   useColorModeValue,
 } from '@chakra-ui/react';
 import ReviewCard from './ReviewCard';
 
-const ReviewsSection = ({ initialReviews, totalPages, currentPage, profName }) => {
-  const [reviews, setReviews] = useState(initialReviews);
+const ReviewSection = ({ initialReviewsData, profName }) => {
+  const [reviews, setReviews] = useState(initialReviewsData ? initialReviewsData.reviews : []);
+  const [currentPage, setCurrentPage] = useState(initialReviewsData ? initialReviewsData.currentPage : 1);
+  const [totalPages, setTotalPages] = useState(initialReviewsData ? initialReviewsData.totalPages : 1);
+  const [isLoading, setIsLoading] = useState(false);
   const [page, setPage] = useState(currentPage);
-  const [loading, setLoading] = useState(false);
-  const headingColor = useColorModeValue('gray.700', 'gray.200');
+  // const headingColor = useColorModeValue('gray.700', 'gray.200');
 
-  const fetchReviews = async (newPage) => {
-    setLoading(true);
+  useEffect(() => {
+    setReviews(initialReviewsData.reviews);
+    setCurrentPage(initialReviewsData.currentPage);
+    setTotalPages(initialReviewsData.totalPages);
+  }, [initialReviewsData]); // The dependency array is the key to making this work.
+
+
+
+   const fetchPage = async (pageNumber) => {
+    if (pageNumber < 1 || pageNumber > totalPages) return;
+    
+    setIsLoading(true);
     try {
-      const response = await fetch(`/api/reviews/${profName}?page=${newPage}`);
-      const data = await response.json();
-      setReviews(data.reviews);
-      setPage(data.currentPage);
+      const response = await fetch(`/api/reviews/${encodeURIComponent(profName)}?page=${pageNumber}`);
+      if (response.ok) {
+        const data = await response.json();
+        setReviews(data.reviews);
+        setCurrentPage(data.currentPage);
+        setTotalPages(data.totalPages);
+        // Scroll to the top of the review section when changing pages
+        document.getElementById('review-section-top')?.scrollIntoView({ behavior: 'smooth' });
+      }
     } catch (error) {
-      console.error("Failed to fetch reviews", error);
-    }
-    setLoading(false);
-  };
-
-  const handleNextPage = () => {
-    if (page < totalPages) {
-      fetchReviews(page + 1);
+      console.error("Failed to fetch reviews for page", pageNumber, error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handlePrevPage = () => {
-    if (page > 1) {
-      fetchReviews(page - 1);
-    }
-  };
-  
   if (!reviews || reviews.length === 0) {
-      return null;
+    return <Text>No reviews available for this professor.</Text>;
   }
 
   return (
-    <Box w="100%" mt={8}>
-      <Heading size="lg" mb={4} color={headingColor}>
-        Student Reviews
-      </Heading>
-      {loading ? (
-        <VStack>
-            <Spinner />
-        </VStack>
+    <VStack spacing={4} align="stretch" id="review-section-top">
+      {isLoading ? (
+        <Flex justify="center" align="center" h="200px">
+          <Spinner size="xl" />
+        </Flex>
       ) : (
-        <VStack spacing={4}>
-          {reviews.map(review => (
-            <ReviewCard key={review._id} review={review} />
-          ))}
-        </VStack>
+        reviews.map((review) => (
+          <ReviewCard key={review._id} review={review} />
+        ))
       )}
-      <HStack mt={4} justify="center">
-        <Button onClick={handlePrevPage} isDisabled={page <= 1 || loading}>
-          Previous
-        </Button>
-        <Text>Page {page} of {totalPages}</Text>
-        <Button onClick={handleNextPage} isDisabled={page >= totalPages || loading}>
-          Next
-        </Button>
-      </HStack>
-    </Box>
+      
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <HStack justify="center" align="center" spacing={4} mt={4}>
+          <IconButton
+            icon={<ChevronLeftIcon />}
+            aria-label="Previous Page"
+            onClick={() => fetchPage(currentPage - 1)}
+            isDisabled={currentPage <= 1 || isLoading}
+          />
+          <Text>
+            Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
+          </Text>
+          <IconButton
+            icon={<ChevronRightIcon />}
+            aria-label="Next Page"
+            onClick={() => fetchPage(currentPage + 1)}
+            isDisabled={currentPage >= totalPages || isLoading}
+          />
+        </HStack>
+      )}
+    </VStack>
   );
 };
 
-export default ReviewsSection;
+export default ReviewSection;
