@@ -5,8 +5,6 @@ import {
   Button,
   VStack,
   IconButton,
-  ChevronLeftIcon,
-  ChevronRightIcon,
   HStack,
   Spinner,
   Text,
@@ -14,14 +12,13 @@ import {
   useColorModeValue,
 } from '@chakra-ui/react';
 import ReviewCard from './ReviewCard';
+import { ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
 
-const ReviewSection = ({ initialReviewsData, profName }) => {
+const ReviewSection = ({ initialReviewsData, profName, RMPLink }) => {
   const [reviews, setReviews] = useState(initialReviewsData ? initialReviewsData.reviews : []);
   const [currentPage, setCurrentPage] = useState(initialReviewsData ? initialReviewsData.currentPage : 1);
   const [totalPages, setTotalPages] = useState(initialReviewsData ? initialReviewsData.totalPages : 1);
   const [isLoading, setIsLoading] = useState(false);
-  const [page, setPage] = useState(currentPage);
-  // const headingColor = useColorModeValue('gray.700', 'gray.200');
 
   useEffect(() => {
     setReviews(initialReviewsData.reviews);

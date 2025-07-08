@@ -188,6 +188,7 @@ export default function Prof({ profData, summary, reviewsData }) {
                 <ReviewSection
                   initialReviewsData={reviewsData}
                   profName={name}
+                  RMPLink={summary.RMPLink}
                 />
               </Box>
             )}
